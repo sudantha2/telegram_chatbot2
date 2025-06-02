@@ -26,11 +26,9 @@ def song_search(message):
     search_and_display(message, query, 0)
 
 def search_and_display(message, query, page, chat_id=None, user_id=None):
-    # Use chat_id if provided, otherwise get from message
     target_chat_id = chat_id if chat_id else message.chat.id
     target_user_id = user_id if user_id else message.from_user.id
     
-    # Send or edit loading message
     search_message_id = user_searches.get(target_user_id, {}).get('search_message_id')
     
     if search_message_id:
@@ -38,17 +36,14 @@ def search_and_display(message, query, page, chat_id=None, user_id=None):
             bot.edit_message_text(f"🔍 Searching for `{query}` (Page {page + 1})...", 
                                 target_chat_id, search_message_id, parse_mode='Markdown')
         except:
-            # If edit fails, send new message
             search_msg = bot.send_message(target_chat_id, f"🔍 Searching for `{query}` (Page {page + 1})...", parse_mode='Markdown')
             user_searches[target_user_id]['search_message_id'] = search_msg.message_id
     else:
-        # Send new message for first time
         search_msg = bot.send_message(target_chat_id, f"🔍 Searching for `{query}` (Page {page + 1})...", parse_mode='Markdown')
         if target_user_id in user_searches:
             user_searches[target_user_id]['search_message_id'] = search_msg.message_id
 
     try:
-        # Search for more results to enable pagination
         with yt_dlp.YoutubeDL({'quiet': True, 'extract_flat': True}) as ydl:
             results = ydl.extract_info(f"ytsearch20:{query}", download=False)['entries']
     except Exception as e:
@@ -63,7 +58,6 @@ def search_and_display(message, query, page, chat_id=None, user_id=None):
             bot.send_message(target_chat_id, error_msg)
         return
 
-    # Calculate pagination
     results_per_page = 5
     start_idx = page * results_per_page
     end_idx = start_idx + results_per_page
@@ -87,25 +81,20 @@ def search_and_display(message, query, page, chat_id=None, user_id=None):
         video_id = video.get("id")
         markup.add(InlineKeyboardButton(title, callback_data=f"dl_{video_id}"))
 
-    # Add Next button if there are more results and we haven't reached page 4
     if len(results) > end_idx and page < 3:
         markup.add(InlineKeyboardButton("➡️ Next", callback_data=f"next_{page + 1}"))
     
-    # Add Cancel button
     markup.add(InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_{target_user_id}"))
 
-    # Edit the search message with results
     search_message_id = user_searches.get(target_user_id, {}).get('search_message_id')
     if search_message_id:
         try:
             bot.edit_message_text(f"🎧 Choose a song to download (Page {page + 1}):", 
                                 target_chat_id, search_message_id, reply_markup=markup)
         except:
-            # If edit fails, send new message
             results_msg = bot.send_message(target_chat_id, f"🎧 Choose a song to download (Page {page + 1}):", reply_markup=markup)
             user_searches[target_user_id]['search_message_id'] = results_msg.message_id
     else:
-        # Send new message for first time
         results_msg = bot.send_message(target_chat_id, f"🎧 Choose a song to download (Page {page + 1}):", reply_markup=markup)
         if target_user_id in user_searches:
             user_searches[target_user_id]['search_message_id'] = results_msg.message_id
@@ -122,24 +111,21 @@ def handle_next_page(call):
     query = user_searches[user_id]['query']
     user_searches[user_id]['page'] = page
     
-    # Call search_and_display with chat_id and user_id directly
     search_and_display(None, query, page, call.message.chat.id, user_id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cancel_"))
 def handle_cancel(call):
     user_id = call.from_user.id
     
-    # Clear user search session
     if user_id in user_searches:
         search_message_id = user_searches[user_id].get('search_message_id')
         if search_message_id:
             try:
                 bot.delete_message(call.message.chat.id, search_message_id)
             except:
-                pass  # Message might already be deleted
+                pass
         del user_searches[user_id]
     
-    # Send cancellation message with user profile link
     user_link = f"[{call.from_user.first_name}](tg://user?id={user_id})"
     bot.send_message(call.message.chat.id, f"{user_link} cancelled the search results.", parse_mode='Markdown')
 
@@ -149,7 +135,6 @@ def handle_download(call):
     video_id = call.data[3:]
     url = f"https://www.youtube.com/watch?v={video_id}"
     
-    # Clear search results and replace with completion message
     if user_id in user_searches:
         search_message_id = user_searches[user_id].get('search_message_id')
         if search_message_id:
@@ -157,8 +142,7 @@ def handle_download(call):
                 bot.edit_message_text("🎵 Your song will be ready soon! Please wait while we prepare it for you...", 
                                     call.message.chat.id, search_message_id)
             except:
-                pass  # Message might already be deleted
-        # Clear user search session
+                pass
         del user_searches[user_id]
     
     msg = bot.send_message(call.message.chat.id, "⬇️ Downloading... Please wait.")
@@ -166,7 +150,8 @@ def handle_download(call):
     ydl_opts = {
         'format': 'bestaudio',
         'outtmpl': 'downloads/%(title)s.%(ext)s',
-        'quiet': True
+        'quiet': True,
+        'cookies': 'cookies.txt'  # ✅ uses cookies.txt to bypass age/login blocks
     }
 
     try:
