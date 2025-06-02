@@ -1,0 +1,12 @@
+python-telegram-bot==20.7
+Flask==2.2.5
+Pillow==9.5.0
+gTTS==2.3.2
+telegram
+requests
+duckduckgo-search
+pydub
+langdetect
+motor
+yt-dlp
+youtube-search-python
