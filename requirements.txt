@@ -10,3 +10,4 @@ langdetect
 motor
 yt-dlp
 youtube-search-python
+pyTelegramBotAPI
